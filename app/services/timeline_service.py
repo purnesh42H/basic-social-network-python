@@ -1,4 +1,4 @@
-import time
+import asyncio
 
 class TimelineService(object):
 
@@ -6,7 +6,9 @@ class TimelineService(object):
         self.database = database
         self.user_service = user_service
         self.friend_service = friend_service
+        self.semaphore = asyncio.Semaphore(value=10)
 
     async def get_timeline(self, user_id):
-        user = await self.user_service.get_user(user_id)
-        return user.timeline
+        async with self.semaphore:
+            user = await self.user_service.get_user(user_id)
+            return user.timeline
