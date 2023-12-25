@@ -9,17 +9,22 @@ class AuthService(object):
     def __init__(self, database):
         self.database = database
 
-    def generate_token(self, username, password):
+    async def generate_token(self, username, password):
+        current_token = (await self.database.get_user(self.database.username_user_id_mapping[username])).token
+        if current_token:
+            await self.database.remove_token(current_token)
+        
         payload = {'username': username, 'password': password}
         token = jwt.encode(payload, SECRET_KEY, ALGORITHM)
-        self.database.add_token(token, self.database.username_user_id_mapping[username])
+        await self.database.add_token(token, self.database.username_user_id_mapping[username])
+        
         return token
 
-    def is_valid_token(self, user_id, token):
+    async def is_valid_token(self, user_id, token):
         return user_id in self.database.users \
             and self.database.tokens[token] == user_id
     
-    def validate_credentials(self, username, password):
+    async def validate_credentials(self, username, password):
         if username not in self.database.username_user_id_mapping:
             return False
         

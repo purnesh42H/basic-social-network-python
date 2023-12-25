@@ -1,15 +1,16 @@
-# app/controllers/friend_controller.py
+# app/controllers/chat_controller.py
 from aiohttp import web
 import app.utils
+from datetime import datetime
 
-class FriendController(object):
+class ChatController(object):
     
-    def __init__(self, auth_service, user_service, friend_service):
+    def __init__(self, auth_service, user_service, chat_service):
         self.auth_service = auth_service
         self.user_service = user_service
-        self.friend_service = friend_service
+        self.chat_service = chat_service
 
-    async def send_friend_request(self, request):
+    async def send_chat(self, request):
         data = await request.post()
         
         token = app.utils.get_token(request=request)
@@ -27,14 +28,11 @@ class FriendController(object):
         if not to_user:
             return web.Response(status=404, text='Friend not found')
         
-        to_user_friends = await self.friend_service.get_friends(user_id=to_user_id)
-        if from_user_id in to_user_friends:
-            return web.Response(status=400, text='Already friends')
-        
-        await self.friend_service.send_friend_request(from_user_id=from_user_id, to_user_id=to_user_id)
-        return web.Response(status=200, text='Friend Request Sent to ' + to_user.username)
+        message = data.get('message')
+        await self.chat_service.send_chat(from_user_id=from_user_id, to_user_id=to_user_id, message=message)
+        return web.Response(status=200, text='Chat Sent to ' + to_user.username)
     
-    async def accept_friend_request(self, request):
+    async def receive_chat(self, request):
         data = await request.post()
 
         token = app.utils.get_token(request=request)
@@ -52,14 +50,13 @@ class FriendController(object):
         if not to_user:
             return web.Response(status=404, text='User not found')
         
-        to_user_friends = await self.friend_service.get_friends(user_id=to_user_id)
-        if from_user_id in to_user_friends:
-            return web.Response(status=400, text='Already friends')
+        chat_id = await self.chat_service.receive_chat(from_user_id=from_user_id, to_user_id=to_user_id)
+        if not chat_id:
+            return web.Response(status=400, text='No chats available ' + from_user.username)
         
-        await self.friend_service.accept_friend_request(from_user_id=from_user_id, to_user_id=to_user_id)
-        return web.Response(status=200, text='Friend Added ' + from_user.username)
+        return web.Response(status=200, text='Chat Recieved from ' + from_user.username)
     
-    async def get_friends(self, request):        
+    async def get_chat_history(self, request):        
         token = app.utils.get_token(request=request)
         user_id = request.match_info['user_id']
         if not token or not (await self.auth_service.is_valid_token(user_id=user_id, token=token)):
@@ -69,10 +66,15 @@ class FriendController(object):
         if not user:
             return web.Response(status=404, text='User not found')
         
-        friends = await self.friend_service.get_friends(user_id)
-        friend_usernames = []
-        for friend_id in friends:
-            friend_usernames.append((await self.user_service.get_user(friend_id)).username)
+        friend_id = request.match_info['friend_id']
+        chats = await self.chat_service.chat_history(user_id=user_id, friend_id=friend_id)
+        chat_messages = []
+        for chat in chats:
+            direction = "RECEIVED"
+            if chat.from_user_id == user_id:
+                direction = "SENT"
+            
+            chat_messages.append([str(datetime.fromtimestamp(chat.timestamp)), direction, str(chat.status), chat.message])
 
-        return web.json_response({'friends': friend_usernames})
+        return web.json_response({'chats': chat_messages})
 

@@ -1,20 +1,30 @@
+import time
+from app.models import Friend
+
 class FriendService(object):
 
     def __init__(self, database):
         self.database = database
     
-    def send_friend_request(self, from_user_id, to_user_id):
-        to_user = self.database.get_user(user_id=to_user_id)
-        to_user.pending_friend_requests.add(from_user_id)
+    async def send_friend_request(self, from_user_id, to_user_id):
+        timestamp = timestamp=time.time()
+        friend = Friend(from_user_id=from_user_id, to_user_id=to_user_id, timestamp=timestamp, status="PENDING")
+        
+        await self.database.add_pending_friend(user_id=to_user_id, friend_id=from_user_id, friend=friend)
+        await self.database.add_pending_friend(user_id=from_user_id, friend_id=to_user_id, friend=friend)
 
-    def accept_friend_request(self, from_user_id, to_user_id):
-        to_user = self.database.get_user(user_id=to_user_id)
-        from_user = self.database.get_user(user_id=from_user_id)
+    async def accept_friend_request(self, from_user_id, to_user_id):
+        timestamp = timestamp=time.time()
 
-        from_user.friends.add(to_user_id)
-        to_user.friends.add(from_user_id)
-        to_user.pending_friend_requests.remove(from_user_id)
+        friend = await self.database.get_pending_friend(user_id=to_user_id, friend_id=from_user_id)
+        friend.status = "FRIEND"
+        friend.timestamp = timestamp
+        
+        await self.database.remove_pending_friend(user_id=to_user_id, friend_id=from_user_id)
+        await self.database.add_friend(user_id=to_user_id, friend_id=from_user_id, friend=friend)
 
-    def get_friends(self, user_id):
-        user = self.database.get_user(user_id=user_id)
-        return list(user.friends)
+        await self.database.remove_pending_friend(user_id=from_user_id, friend_id=to_user_id)
+        await self.database.add_friend(user_id=from_user_id, friend_id=to_user_id, friend=friend)
+
+    async def get_friends(self, user_id):
+        return await self.database.get_all_friends(user_id=user_id)

@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict, deque, OrderedDict
 
 class User(object):
 
@@ -8,39 +9,38 @@ class User(object):
         self.password = password
         self.country = country
         self.timestamp = timestamp
-        self.friends = set() # {friend_ids}
-        self.posts = set() # {post_ids}
-        self.pending_friend_requests = set() # {friend_ids}
-        self.timeline = {} # {post_id: friend_id} top 10 post_ids
+        self.token = None
+        self.chat_history = defaultdict(list) # {friend_id: [Chat()]}
+        self.chat_queue = defaultdict(deque) # {friend_id: deque()}
+        self.friends = {} # {friend_id: Friend()}
+        self.posts = {} # {post_id: Post()}
+        self.pending_friend_requests = {} # {friend_id: Friend()}
+        self.timeline = OrderedDict() # {post_id: {friend_username, snippet}} top 10 post_ids
 
 class Post(object):
 
-    def __init__(self, owner_id, content, timestamp):
+    def __init__(self, user_id, content, timestamp):
         self.id = str(uuid.uuid4())
-        self.owner_id = owner_id
+        self.user_id = user_id
         self.content = content
+        self.snippet = content[:50]
         self.timestamp = timestamp
 
 class Chat(object):
 
-    def __init__(self, sender_id, receiver_id, timestamp):
+    def __init__(self, from_user_id, to_user_id, timestamp, status, message):
         self.id = str(uuid.uuid4())
-        self.sender_id = sender_id
-        self.receiver_id = receiver_id
+        self.from_user_id = from_user_id
+        self.to_user_id = to_user_id
+        self.status = status # SENT, DELIVERED
         self.timestamp = timestamp
+        self.message = message
 
 class Friend(object):
 
-    def __init__(self, user_id1, user_id2, timestamp):
+    def __init__(self, from_user_id, to_user_id, timestamp, status):
         self.id = str(uuid.uuid4())
-        self.user_id1 = user_id1
-        self.user_id2 = user_id2
-        self.timestamp = timestamp
-
-class PendingFriendRequest(object):
-
-    def __init__(self, from_id, to_id, timestamp):
-        self.id = str(uuid.uuid4())
-        self.from_id = from_id
-        self.to_id = to_id
+        self.from_user_id = from_user_id
+        self.to_user_id = to_user_id
+        self.status = status # FRIEND, PENDING
         self.timestamp = timestamp
