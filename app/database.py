@@ -1,45 +1,57 @@
 # app/database.py
+import asyncio
+
 class InMemorySocialNetworkDatabase(object):
     
     def __init__(self):
         self.users = {}
         self.username_user_id_mapping = {}
         self.tokens = {}
+        self.lock = asyncio.Lock()
 
     async def add_token(self, token, user_id):
-        self.tokens[token] = user_id
-        (await self.get_user(user_id=user_id)).token = token
+        async with self.lock:
+            self.tokens[token] = user_id
+            (await self.get_user(user_id=user_id)).token = token
 
     async def remove_token(self, token):
-        del self.tokens[token]
+        async with self.lock:
+            del self.tokens[token]
     
     async def add_user(self, user):
-        self.users[user.id] = user
-        self.username_user_id_mapping[user.username] = user.id
+        async with self.lock:
+            self.users[user.id] = user
+            self.username_user_id_mapping[user.username] = user.id
     
     async def add_pending_friend(self, user_id, friend_id, friend):
         user = await self.get_user(user_id=user_id)
-        user.pending_friend_requests[friend_id] = friend
+        async with self.lock:
+            user.pending_friend_requests[friend_id] = friend
 
     async def remove_pending_friend(self, user_id, friend_id):
         user = await self.get_user(user_id=user_id)
-        del user.pending_friend_requests[friend_id]
+        async with self.lock:
+            del user.pending_friend_requests[friend_id]
 
     async def add_friend(self, user_id, friend_id, friend):
         user = await self.get_user(user_id=user_id)
-        user.friends[friend_id] = friend
+        async with self.lock:
+            user.friends[friend_id] = friend
 
     async def queue_chat(self, user_id, friend_id, chat):
         user = await self.get_user(user_id=user_id)
-        user.chat_queue[friend_id].append(chat)
+        async with self.lock:
+            user.chat_queue[friend_id].append(chat)
 
     async def add_chat(self, user_id, friend_id, chat):
         user = await self.get_user(user_id=user_id)
-        user.chat_history[friend_id].append(chat)
+        async with self.lock:
+            user.chat_history[friend_id].append(chat)
 
     async def dequeu_chat(self, user_id, friend_id):
         user = await self.get_user(user_id=user_id)
-        return user.chat_queue[friend_id].popleft()
+        async with self.lock:
+            return user.chat_queue[friend_id].popleft()
 
     async def has_user(self, user_id):
         return user_id in self.users

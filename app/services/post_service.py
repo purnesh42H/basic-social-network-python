@@ -17,21 +17,21 @@ class PostService(object):
     async def post(self, user_id, content):
         timestamp = time.time()
         post = Post(user_id=user_id, content=content, timestamp=timestamp)
-        
-        async with self.semaphore:
-            user = await self.user_service.get_user(user_id)
-            user.posts[post.id] = post
 
-            friends = await self.friend_service.get_friends(user_id=user_id)
-            if len(friends) < POPULAR_USER_THRSHOLD:
-                for friend_id, friend in friends.items():
-                    async with self.lock:
-                        friend = await self.user_service.get_user(friend_id)
-                        friend.timeline[post.id] = (post.user_id, post.snippet)
-                        if len(friend.timeline) > TIMELINE_THRESHOLD:
-                            friend.timeline.popitem(last=False)
+        user = await self.user_service.get_user(user_id)
+        user.posts[post.id] = post
 
-            return post.id
+        friends = await self.friend_service.get_friends(user_id=user_id)
+        if len(friends) < POPULAR_USER_THRSHOLD:
+            for friend_id, friend in friends.items():
+                friend = await self.user_service.get_user(friend_id)
+                
+                async with self.lock:
+                    friend.timeline[post.id] = (post.user_id, post.snippet)
+                    if len(friend.timeline) > TIMELINE_THRESHOLD:
+                        friend.timeline.popitem(last=False)
+
+        return post.id
 
     async def view(self, user_id, post_id):
         async with self.semaphore:
@@ -42,16 +42,16 @@ class PostService(object):
             return user.posts[post_id]
 
     async def delete(self, user_id, post_id):
-        async with self.semaphore:
-            user = await self.user_service.get_user(user_id=user_id)
-            if post_id not in user.posts:
-                return
+        user = await self.user_service.get_user(user_id=user_id)
+        if post_id not in user.posts:
+            return
 
-            del user.posts[post_id]
+        del user.posts[post_id]
 
-            friends = await self.friend_service.get_friends(user_id=user_id)
-            if len(friends) < POPULAR_USER_THRSHOLD:
-                for friend_id, friend in friends.items():
-                    async with self.lock:
-                        friend = await self.user_service.get_user(friend_id)
-                        del friend.timeline[post_id]
+        friends = await self.friend_service.get_friends(user_id=user_id)
+        if len(friends) < POPULAR_USER_THRSHOLD:
+            for friend_id, friend in friends.items():
+                friend = await self.user_service.get_user(friend_id)
+                
+                async with self.lock:
+                    del friend.timeline[post_id]
