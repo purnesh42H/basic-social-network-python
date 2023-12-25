@@ -1,0 +1,12 @@
+# Functional Requirements
+- User should be able to register, login through multiple devices
+    - All crud operations are carried out with issued token
+    - token never expires
+- User can add friends by sending friend requests and accept other friend requests
+- User can send and receive messages to and from friends respectively
+- User can write and view post
+- On login, user get a timeline of top 10 recent posts from friends
+- User can see list of friends, pending friend requests
+- Bonus
+    - System recommends friend suggestions
+    - Group chat
